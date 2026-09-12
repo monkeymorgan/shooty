@@ -10,8 +10,17 @@ rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 bincode = "1.3"
 
+# rand's RNG source on wasm32 — needs the "js" feature to read entropy via
+# the browser's crypto API instead of a native OS call.
+getrandom = { version = "0.2", features = ["js"] }
+
 [profile.dev]
 opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# The wasm build ships debug symbols by default (~112MB raw), which is fine
+# for native but far too big to serve over the web — strip them for release.
+[profile.release]
+strip = true

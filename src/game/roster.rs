@@ -38,18 +38,30 @@ impl Pick {
     ///
     /// The crowd and gloom skins are deliberately absent — they are what you
     /// fight, and a wave of them should not be something you can also be.
+    ///
+    /// The skeletal line is a native-build-only extra: on wasm it's left out
+    /// of the lineup entirely, so a web build never references (and so never
+    /// fetches) the Quaternius assets — they're still on disk for native/lab
+    /// use, just not part of what a browser download has to pay for.
     pub fn playable() -> Vec<Pick> {
         let boxy = skins::BOXY
             .iter()
             .enumerate()
             .filter(|(_, b)| b.cast == Cast::Band)
             .map(|(i, _)| Pick::Boxy(i));
-        let skeletal = skins::SKINS
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.cast == Cast::Band)
-            .map(|(i, _)| Pick::Skeletal(i));
-        boxy.chain(skeletal).collect()
+        #[cfg(target_arch = "wasm32")]
+        {
+            boxy.collect()
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let skeletal = skins::SKINS
+                .iter()
+                .enumerate()
+                .filter(|(_, s)| s.cast == Cast::Band)
+                .map(|(i, _)| Pick::Skeletal(i));
+            boxy.chain(skeletal).collect()
+        }
     }
 
     pub fn id(self) -> &'static str {
