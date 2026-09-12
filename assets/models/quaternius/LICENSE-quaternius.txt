@@ -1,0 +1,25 @@
+	Ultimate Modular Men Pack
+
+	Created/distributed by Quaternius (quaternius.com)
+	Source: https://quaternius.com/packs/ultimatemodularcharacters.html
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	Free to use in personal, educational and commercial projects.
+	Crediting 'Quaternius' is appreciated but not required.
+
+			------------------------------
+
+	Vendored here: the 11 individual characters from the "Individual
+	Characters / glTF" folder, converted .gltf -> .glb with
+	gltf-pipeline and renamed lowercase. Each carries the shared
+	62-bone CharacterArmature and all 24 baked animation clips
+	(Idle, Walk, Run, Death, Punch_*, Kick_*, Roll, Gun_Shoot, ...).
+	FBX / .blend / Humanoid-rig / separate-animation variants from the
+	pack were not vendored.
+
+	• Website : quaternius.com
+	• Patreon : patreon.com/quaternius

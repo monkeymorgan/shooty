@@ -1,0 +1,16 @@
+.claude
+CLAUDE.md
+bevy.md
+/target
+screenshots/
+/.venv
+.DS_Store
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
+__pycache__/
+*.pyc

@@ -1,0 +1,40 @@
+CC-BY ATTRIBUTION REQUIRED — these are the only assets in the project that are
+not CC0. Everything else (Kenney kits, Quaternius characters) is public domain
+and needs no credit; these three do, and the credit has to be visible to
+players, not just sitting in this file.
+
+This is discharged in game by the **credits screen**: `C` on the character-select
+screen (`src/game/credits.rs`). The aircraft block is drawn first and brightest
+because it is the part that is legally required; everything else on that screen
+is courtesy.
+
+The screen uses `assets/fonts/DejaVuSansMono.ttf` rather than Bevy's built-in
+font, which has no glyphs for "ě" or "á" and drew them as empty boxes.
+
+---
+
+plane.glb
+    "plane 2" by Jake Blakeley
+    https://poly.pizza/m/amIu9ua-L0A
+    Licence: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
+
+plane-small.glb
+    "Small Airplane" by Vojtěch Balák
+    https://poly.pizza/m/7cvx6ex-xfL
+    Licence: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
+
+blimp.glb
+    "Blimp" by Poly by Google
+    https://poly.pizza/m/0GU9i_dtwb0
+    Licence: CC-BY 3.0  (https://creativecommons.org/licenses/by/3.0/)
+
+---
+
+Credit line to display, verbatim:
+
+    Aircraft models by Jake Blakeley, Vojtěch Balák, and Poly by Google,
+    via Poly Pizza — licensed CC-BY 3.0.
+
+Note the diacritics in "Vojtěch Balák": the credits screen font must carry
+Latin Extended-A (ě, á) or the name will render wrong, which is a failure to
+attribute rather than a cosmetic bug.
