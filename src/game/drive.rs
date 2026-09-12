@@ -14,8 +14,9 @@
 //! got in. That is a real difference between the two casts and worth knowing
 //! about before you pick one.
 //!
-//! The car is a weapon while you are in it: it flattens the swarm it drives
-//! through, and in exchange you cannot fire or build from the driving seat.
+//! The car is a weapon too while you are in it — it flattens the swarm it
+//! drives through — but the guitarist can still fire from the driving seat;
+//! only building is off the table there.
 
 use bevy::prelude::*;
 

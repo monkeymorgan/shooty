@@ -278,6 +278,7 @@ fn drummer_actions(
                     continue;
                 }
                 hp.current -= MELEE_DAMAGE;
+                cues.write(AudioCue::Hit);
                 kit.swing_hit.push(e);
                 et.translation += ground((to / dist) * MELEE_KNOCK, 0.0);
             }
@@ -318,6 +319,7 @@ fn spawn_shockwave(
 fn expand_shockwaves(
     mut commands: Commands,
     time: Res<Time>,
+    mut cues: MessageWriter<AudioCue>,
     mut waves: Query<(Entity, &mut Shockwave, &mut Transform), Without<Enemy>>,
     mut enemies: Query<(Entity, &mut Transform, &mut Health), With<Enemy>>,
 ) {
@@ -334,6 +336,7 @@ fn expand_shockwaves(
             let to = plane(et.translation) - center;
             if (to.length() - wave.radius).abs() < 1.2 {
                 hp.current -= wave.damage;
+                cues.write(AudioCue::Hit);
                 wave.hit.push(enemy);
                 if wave.knock > 0.0 {
                     et.translation += ground(to.normalize_or_zero() * wave.knock, 0.0);

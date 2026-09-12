@@ -4,6 +4,7 @@ use rand::Rng;
 
 use std::collections::HashMap;
 
+use super::audio::AudioCue;
 use super::pickup::{DualWield, RapidFire};
 use super::player::{Aim, Dodge, Intent, Muzzle};
 use super::skins::{self, Sound, Waveform};
@@ -389,6 +390,7 @@ fn fire(
     mut wave_assets: ResMut<WaveAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut cues: MessageWriter<AudioCue>,
     player: Query<
         (
             &Aim,
@@ -396,7 +398,6 @@ fn fire(
             &Intent,
             &Hero,
             &super::roster::Pick,
-            Option<&super::drive::Driving>,
             Option<&DualWield>,
             Option<&RapidFire>,
         ),
@@ -406,14 +407,16 @@ fn fire(
     guns: Query<&super::player::GuitarGun>,
 ) {
     cooldown.0.tick(time.delta());
-    let Some((aim, dodge, intent, _, pick, driving, dual, rapid)) =
+    let Some((aim, dodge, intent, _, pick, dual, rapid)) =
         player.iter().find(|t| *t.3 == Hero::Guitarist)
     else {
         return;
     };
     let firing = intent.fire;
-    // No firing from the driving seat: in the car, the car is the weapon.
-    if driving.is_some() || dodge.is_rolling() || !firing || !cooldown.0.is_finished() {
+    // Dodge-rolling is still the one thing that stops a shot; the car used
+    // to as well, back when the car was the only weapon in the driving
+    // seat — now you can shoot from it too.
+    if dodge.is_rolling() || !firing || !cooldown.0.is_finished() {
         return;
     }
     // Synth "Arpeggio" pickup: crank the fire rate for its duration.
@@ -454,6 +457,7 @@ fn fire(
     let mut rng = rand::thread_rng();
     for origin in origins {
         *shot += 1;
+        cues.write(AudioCue::Shoot);
         let (mesh, material) = match &wave {
             Some((key, mat)) => (wave_assets.phases[key][0].clone(), mat.clone()),
             None => (shot_assets.mesh.clone(), shot_assets.material.clone()),

@@ -5,12 +5,19 @@ gen_audio.py - synthesize placeholder audio stems for `shooty`.
 Run from the repo root:
     .venv/bin/python tools/gen_audio.py
 
-Pure-numpy synthesis. Writes 6 OGG/Vorbis files into assets/audio/:
+Pure-numpy synthesis. Writes OGG/Vorbis files into assets/audio/:
     count_in.ogg   drumstick "1-2-3-4" count-in
     chord_stab.ogg big distorted power-chord payoff hit
     beat_click.ogg soft unobtrusive metronome tick
-    build.ogg      mechanical "structure goes up" sound
+    build.ogg      bright "structure goes up" chime (a light thunk + a
+                   resolving major-triad ta-da, not the dark mechanical
+                   clunk this used to be)
     scrap.ogg      tiny bright salvage pickup blip
+    pop.ogg        a bad vibe bursts (enemy death)
+    shoot.ogg      a pick leaves the gun
+    hit.ogg        a shot/shockwave/swing lands without killing
+    hero_hurt.ogg  a hero takes damage
+    pickup.ogg     a buff pickup (dual guitar / encore / arpeggio) is grabbed
     music_loop.ogg seamlessly loopable bass + drums groove (~124 BPM)
 
 Deterministic (all noise seeded) and idempotent (overwrites).
@@ -215,31 +222,40 @@ def make_beat_click():
 
 
 def make_build():
+    """A structure goes up. Bright and affirming: one light contact thunk to
+    feel the placement land, then a quick ascending major triad — a "ta-da",
+    not a sweep. The old version led with two low, noisy mechanical clunks
+    before its resolving blip, which read as dark/ominous rather than a
+    placement you want to see happen; this drops the dark low end and gets to
+    the resolved chord faster."""
     rng = np.random.default_rng(2002)
-    dur = 0.6
+    dur = 0.55
     n = int(dur * SR)
     buf = np.zeros(n)
 
-    def clunk(at, tau=0.05, f=190.0):
-        m = int(0.12 * SR)
-        tt = t(m)
-        body = np.sin(2 * np.pi * f * tt) * np.exp(-tt / tau)
-        noise = one_pole_lp(rng.standard_normal(m), 900.0) * np.exp(-tt / 0.02)
-        seg = 0.7 * body + 0.6 * noise
-        s = int(at * SR)
-        buf[s:s + m] += seg[: max(0, n - s)]
-
-    clunk(0.0, tau=0.05, f=210.0)
-    clunk(0.13, tau=0.06, f=150.0)
-    # rising synth blip resolving up
-    m = int(0.3 * SR)
+    # Contact thunk: brighter and far less noise than the old mechanical clunk.
+    m = int(0.08 * SR)
     tt = t(m)
-    f = np.linspace(420.0, 900.0, m)
-    f[-int(0.06 * SR):] = 900.0  # settle on the resolved note
-    phase = 2 * np.pi * np.cumsum(f) / SR
-    blip = (np.sin(phase) + 0.3 * np.sin(2 * phase)) * env_ad(m, 0.005, 0.22, curve=2.5)
-    s = int(0.28 * SR)
-    buf[s:s + m] += 0.5 * blip[: max(0, n - s)]
+    body = np.sin(2 * np.pi * 320.0 * tt) * np.exp(-tt / 0.035)
+    noise = one_pole_lp(rng.standard_normal(m), 2200.0) * np.exp(-tt / 0.012)
+    buf[:m] += 0.55 * body + 0.25 * noise
+
+    # Ascending major triad up to the octave (C5-E5-G5-C6): four distinct
+    # notes read as a resolved chord landing, not a synth siren.
+    notes = [
+        (523.25, 0.05, 0.14),
+        (659.25, 0.11, 0.14),
+        (783.99, 0.17, 0.22),
+        (1046.50, 0.23, 0.26),
+    ]
+    for f, at, ln in notes:
+        mm = int(ln * SR)
+        ttt = t(mm)
+        tone = np.sin(2 * np.pi * f * ttt) + 0.3 * np.sin(2 * np.pi * 2 * f * ttt)
+        seg = tone * env_ad(mm, 0.004, ln * 0.55, curve=3.2)
+        s = int(at * SR)
+        buf[s:s + mm] += 0.45 * seg[: max(0, n - s)]
+
     return normalize(buf, -3.0)
 
 
@@ -253,6 +269,78 @@ def make_scrap():
         tt = t(m)
         tone = np.sin(2 * np.pi * f * tt) + 0.25 * np.sin(2 * np.pi * 2 * f * tt)
         seg = tone * env_ad(m, 0.002, ln * 0.6, curve=4.0)
+        s = int(at * SR)
+        buf[s:s + m] += seg[: max(0, n - s)]
+    return normalize(buf, -3.0)
+
+
+def make_shoot():
+    """The pick leaves the gun. Fires up to a dozen times a second once
+    dual-wield and rapid-fire stack, so — like `pop` — it stays small and dry:
+    a tiny falling-pitch pluck with a short click on the front, no tail to
+    build up into a drone."""
+    dur = 0.07
+    n = int(dur * SR)
+    tt = t(n)
+    f = 1300.0 + 500.0 * np.exp(-40 * tt)
+    tone = np.sin(2 * np.pi * np.cumsum(f) / SR) * env_ad(n, 0.0004, 0.028, curve=6.0)
+    rng = np.random.default_rng(5005)
+    click = one_pole_hp(rng.standard_normal(n), 3500.0) * env_ad(n, 0.0002, 0.006, curve=9.0)
+    return normalize(sat(tone * 0.8 + click * 0.35, 1.3), -6.0)
+
+
+def make_hit():
+    """A shot, shockwave, or swing lands on an enemy without killing it.
+    Deliberately flat in pitch — no sweep — so it never gets mistaken for
+    `pop`'s falling burst, which means the target actually died."""
+    dur = 0.09
+    n = int(dur * SR)
+    tt = t(n)
+    tone = np.sin(2 * np.pi * 340.0 * tt) * np.exp(-tt / 0.035)
+    rng = np.random.default_rng(6006)
+    noise = one_pole_lp(rng.standard_normal(n), 2600.0) * np.exp(-tt / 0.02)
+    sig = 0.55 * tone + 0.5 * noise
+    return normalize(sat(sig, 1.4), -7.0)
+
+
+def make_hero_hurt():
+    """A hero takes damage. A short, slightly dissonant falling blip with a
+    noisy edge — meant to read as pain, the hero-side mirror of `pop`'s enemy
+    burst, so the two are never confused even in a busy mix. Contact damage
+    throttles how often this can fire (see `combat::enemies_touch_player`), so
+    it doesn't need to be gentle enough to loop."""
+    dur = 0.16
+    n = int(dur * SR)
+    tt = t(n)
+    f = 260.0 * np.exp(-tt / 0.09) + 90.0
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    tone = np.sin(phase)
+    detune = np.sin(phase * 1.06)
+    body = (0.6 * tone + 0.4 * detune) * env_ad(n, 0.001, 0.11, curve=2.6)
+    rng = np.random.default_rng(7007)
+    grit = one_pole_hp(rng.standard_normal(n), 800.0) * env_ad(n, 0.0005, 0.04, curve=5.0)
+    sig = sat(body * 1.4 + grit * 0.4, 1.3)
+    return normalize(sig, -5.0)
+
+
+def make_pickup():
+    """A buff (dual guitar / encore / arpeggio) is grabbed. A bright rising
+    three-note arpeggio with a bell-like overtone stack — bigger and shinier
+    than `scrap`'s two-note blip, since this is a real power-up rather than a
+    resource tick."""
+    dur = 0.32
+    n = int(dur * SR)
+    buf = np.zeros(n)
+    notes = [(784.00, 0.0, 0.10), (987.77, 0.06, 0.10), (1318.5, 0.12, 0.20)]
+    for f, at, ln in notes:
+        m = int(ln * SR)
+        tt = t(m)
+        tone = (
+            np.sin(2 * np.pi * f * tt)
+            + 0.5 * np.sin(2 * np.pi * 2 * f * tt)
+            + 0.25 * np.sin(2 * np.pi * 3 * f * tt)
+        )
+        seg = tone * env_ad(m, 0.003, ln * 0.6, curve=3.0)
         s = int(at * SR)
         buf[s:s + m] += seg[: max(0, n - s)]
     return normalize(buf, -3.0)
@@ -343,6 +431,10 @@ def main():
         "build.ogg": make_build(),
         "scrap.ogg": make_scrap(),
         "pop.ogg": make_pop(np.random.default_rng(90210)),
+        "shoot.ogg": make_shoot(),
+        "hit.ogg": make_hit(),
+        "hero_hurt.ogg": make_hero_hurt(),
+        "pickup.ogg": make_pickup(),
         "music_loop.ogg": make_music_loop(),
     }
     paths = {name: write_ogg(name, data) for name, data in stems.items()}

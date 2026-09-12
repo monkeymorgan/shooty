@@ -606,6 +606,7 @@ fn channel_sites(
                         radius: SPEAKER_RADIUS,
                     });
                     cues.write(AudioCue::ChordStab);
+                    cues.write(AudioCue::VoiceSpeaker);
                     spawn_speaker(&mut commands, &assets, &mut meshes, &mut materials, here);
                 }
                 StructureKind::Stage => {
@@ -614,6 +615,7 @@ fn channel_sites(
                         radius: STAGE_RADIUS,
                     });
                     cues.write(AudioCue::ChordStab);
+                    cues.write(AudioCue::VoiceStage);
                     spawn_stage(&mut commands, &mut meshes, &mut materials, here);
                     next_state.set(GameState::Victory);
                 }

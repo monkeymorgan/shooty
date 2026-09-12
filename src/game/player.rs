@@ -533,13 +533,14 @@ fn hide_body_in_car(
 }
 
 fn hide_gun_while_rolling(
-    guitarist: Query<(&Dodge, &Hero, Option<&super::drive::Driving>), With<Player>>,
+    guitarist: Query<(&Dodge, &Hero), With<Player>>,
     mut guns: Query<&mut Visibility, With<GuitarGun>>,
 ) {
+    // Driving no longer hides it: the car got a gunner.
     let rolling = guitarist
         .iter()
-        .find(|(_, h, _)| **h == Hero::Guitarist)
-        .is_some_and(|(d, _, driving)| d.is_rolling() || driving.is_some());
+        .find(|(_, h)| **h == Hero::Guitarist)
+        .is_some_and(|(d, _)| d.is_rolling());
     for mut v in &mut guns {
         *v = if rolling {
             Visibility::Hidden

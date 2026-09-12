@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use super::build::{SPEAKERS_TO_LINK, Scrap, SpeakerNet};
 use super::combat::Reviving;
 use super::enemy::{Wave, WavePhase};
+use super::pickup::{DualWield, Encore, RapidFire};
 use super::{Downed, GameState, Health, Hero, Player, RunEntity, Score};
 
 pub struct HudPlugin;

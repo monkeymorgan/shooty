@@ -61,6 +61,23 @@ pub struct Encore {
     cooldown: Timer,
 }
 
+impl Encore {
+    /// Seconds left before the buff itself expires — for the HUD.
+    pub fn window_left(&self) -> f32 {
+        self.window.remaining_secs()
+    }
+
+    /// Is a blast (RMB) available right now?
+    pub fn ready(&self) -> bool {
+        self.cooldown.is_finished()
+    }
+
+    /// Seconds left until the next blast is available, if not ready.
+    pub fn cooldown_left(&self) -> f32 {
+        self.cooldown.remaining_secs()
+    }
+}
+
 /// Expanding shockwave ring spawned by an Encore blast.
 #[derive(Component)]
 struct SoundWave {
@@ -471,6 +488,7 @@ fn drop_from_kills(
 /// they always land on the guitarist.
 fn collect_pickups(
     mut commands: Commands,
+    mut cues: MessageWriter<super::audio::AudioCue>,
     pickups: Query<(Entity, &Transform, &Pickup)>,
     players: Query<(Entity, &Transform, &Hitbox, &Hero), With<Player>>,
 ) {
@@ -495,6 +513,7 @@ fn collect_pickups(
                 commands
                     .entity(guitarist)
                     .insert(DualWield(Timer::from_seconds(BUFF_SECS, TimerMode::Once)));
+                cues.write(super::audio::AudioCue::VoiceDualGuitar);
             }
             PickupKind::Encore => {
                 let mut ready = Timer::from_seconds(ENCORE_COOLDOWN, TimerMode::Once);
@@ -503,13 +522,16 @@ fn collect_pickups(
                     window: Timer::from_seconds(BUFF_SECS, TimerMode::Once),
                     cooldown: ready,
                 });
+                cues.write(super::audio::AudioCue::VoiceEncore);
             }
             PickupKind::Arpeggio => {
                 commands
                     .entity(guitarist)
                     .insert(RapidFire(Timer::from_seconds(BUFF_SECS, TimerMode::Once)));
+                cues.write(super::audio::AudioCue::VoiceArpeggio);
             }
         }
+        cues.write(super::audio::AudioCue::Pickup);
         commands.entity(e).despawn();
     }
 }
@@ -572,6 +594,7 @@ fn encore_blast(
 fn expand_sound_waves(
     mut commands: Commands,
     time: Res<Time>,
+    mut cues: MessageWriter<super::audio::AudioCue>,
     mut waves: Query<(Entity, &mut SoundWave, &mut Transform), Without<Enemy>>,
     mut enemies: Query<(Entity, &mut Transform, &mut Health), With<Enemy>>,
 ) {
@@ -588,6 +611,7 @@ fn expand_sound_waves(
             let to = plane(et.translation) - center;
             if (to.length() - wave.radius).abs() < 1.2 {
                 hp.current -= WAVE_DAMAGE;
+                cues.write(super::audio::AudioCue::Hit);
                 wave.hit.push(enemy);
                 let shove = to.normalize_or_zero() * WAVE_KNOCK;
                 et.translation += ground(shove, 0.0);

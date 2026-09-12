@@ -422,6 +422,7 @@ fn track_gloom(
     clock: Option<Res<super::hud::RunClock>>,
     mut cues: MessageWriter<super::audio::AudioCue>,
     mut bursts: MessageWriter<super::vfx::Explosion>,
+    mut prev_cured: Local<usize>,
 ) {
     let Some(_wave) = wave else { return };
 
@@ -464,6 +465,7 @@ fn track_gloom(
                 idx
             );
             cues.write(super::audio::AudioCue::CountIn);
+            cues.write(super::audio::AudioCue::VoiceCured(idx as u8));
             bursts.write(super::vfx::Explosion {
                 pos: tf.translation + Vec3::Y * 1.2,
                 kind: super::EnemyKind::Sink,
@@ -487,6 +489,10 @@ fn track_gloom(
         *l += (target - *l) * k;
     }
 
+    if cured == STEMS.len() && *prev_cured < STEMS.len() {
+        cues.write(super::audio::AudioCue::VoiceAllCured);
+    }
+    *prev_cured = cured;
     chorus.cured = cured;
 }
 

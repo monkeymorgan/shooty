@@ -44,6 +44,7 @@ fn overlap(a: Vec2, ra: f32, b: Vec2, rb: f32) -> bool {
 
 fn bullets_hit_enemies(
     mut commands: Commands,
+    mut cues: MessageWriter<super::audio::AudioCue>,
     bullets: Query<(Entity, &Transform, &Bullet, &Hitbox)>,
     obstacles: Query<(&Transform, &Obstacle)>,
     mut enemies: Query<(&Transform, &Hitbox, &mut Health), With<Enemy>>,
@@ -63,6 +64,7 @@ fn bullets_hit_enemies(
         for (et, ehb, mut hp) in &mut enemies {
             if overlap(bp, bhb.0, plane(et.translation), ehb.0) {
                 hp.current -= bullet.damage;
+                cues.write(super::audio::AudioCue::Hit);
                 commands.entity(bullet_e).despawn();
                 break;
             }
@@ -76,6 +78,7 @@ fn bullets_hit_enemies(
 #[allow(clippy::type_complexity)]
 fn enemy_bullets_hit_player(
     mut commands: Commands,
+    mut cues: MessageWriter<super::audio::AudioCue>,
     bolts: Query<(Entity, &Transform, &EnemyBullet, &Hitbox)>,
     obstacles: Query<(&Transform, &Obstacle)>,
     mut players: Query<
@@ -104,6 +107,7 @@ fn enemy_bullets_hit_player(
             }
             if overlap(bp, bhb.0, plane(pt.translation), phb.0) {
                 hp.current -= bolt.damage;
+                cues.write(super::audio::AudioCue::HeroHurt);
                 commands.entity(bolt_e).despawn();
                 break;
             }
@@ -112,9 +116,15 @@ fn enemy_bullets_hit_player(
 }
 
 /// Contact damage to every living hero the swarm is touching.
+///
+/// This is continuous rather than a discrete event — a hero can stand in the
+/// swarm for seconds at a time — so the hurt cue is throttled by `hurt_cd`
+/// rather than fired every frame it happens, which would just be a drone.
 fn enemies_touch_player(
     time: Res<Time>,
     autoplay: Option<Res<AutoPlay>>,
+    mut cues: MessageWriter<super::audio::AudioCue>,
+    mut hurt_cd: Local<f32>,
     mut players: Query<
         (
             &Transform,
@@ -130,9 +140,11 @@ fn enemies_touch_player(
     // The scripted capture bot takes reduced contact damage so the proof video
     // shows sustained action rather than the bot's (lack of) skill.
     let scale = if autoplay.is_some() { 0.22 } else { 1.0 };
+    *hurt_cd = (*hurt_cd - time.delta_secs()).max(0.0);
+    let mut touched = false;
     for (pt, phb, mut hp, dodge, driving) in &mut players {
         // I-frames while rolling; a car's bodywork while driving. The car pays
-        // for that by not being able to shoot or build (see `drive.rs`).
+        // for that by not being able to build (see `drive.rs`).
         if dodge.is_rolling() || driving.is_some() {
             continue;
         }
@@ -140,8 +152,13 @@ fn enemies_touch_player(
         for (et, ehb, enemy) in &enemies {
             if overlap(pp, phb.0, plane(et.translation), ehb.0) {
                 hp.current -= enemy.touch_damage * scale * time.delta_secs();
+                touched = true;
             }
         }
+    }
+    if touched && *hurt_cd <= 0.0 {
+        cues.write(super::audio::AudioCue::HeroHurt);
+        *hurt_cd = 0.35;
     }
 }
 

@@ -16,6 +16,7 @@ use bevy::gltf::{Gltf, GltfMaterialName};
 use bevy::prelude::*;
 use bevy::world_serialization::{WorldAssetRoot, WorldInstanceReady};
 
+use super::level::{CurrentLevel, LevelId};
 use super::player::{boxy_atlas, face_in_head, face_material};
 use super::roster::{Gait, Pick, Roster};
 use super::weapon::wave_mesh;
@@ -373,6 +374,7 @@ fn choose(
     browse: Option<Res<BrowseCast>>,
     mut choice: ResMut<Choice>,
     mut roster: ResMut<Roster>,
+    mut current_level: ResMut<CurrentLevel>,
     mut next: ResMut<NextState<GameState>>,
     mut dwell: Local<f32>,
 ) {
@@ -380,6 +382,18 @@ fn choose(
     if autoplay.is_some() {
         next.set(GameState::Playing);
         return;
+    }
+
+    // Cycle which environment the run happens in. Was `SHOOTY_LEVEL`-only —
+    // this is the same `LevelId` the env var picks, just reachable from the
+    // menu now.
+    if keys.just_pressed(KeyCode::KeyL) {
+        let ids = LevelId::ALL;
+        let at = ids
+            .iter()
+            .position(|id| *id == current_level.0)
+            .unwrap_or(0);
+        current_level.0 = ids[(at + 1) % ids.len()];
     }
 
     let cast = Pick::playable();
@@ -525,6 +539,8 @@ struct GenreText;
 struct SoundText;
 #[derive(Component)]
 struct SlotText;
+#[derive(Component)]
+struct LevelText;
 
 fn spawn_ui(mut commands: Commands, assets: Res<AssetServer>, party: Res<Party>) {
     // The default Bevy font has no `\u{b7}` and no arrows — this screen was
@@ -565,6 +581,16 @@ fn spawn_ui(mut commands: Commands, assets: Res<AssetServer>, party: Res<Party>)
                     ..default()
                 },
                 TextColor(Color::srgb(0.62, 0.78, 0.92)),
+            ));
+            c.spawn((
+                LevelText,
+                Text::new(""),
+                TextFont {
+                    font: font.clone(),
+                    font_size: FontSize::Px(14.0),
+                    ..default()
+                },
+                TextColor(Color::srgb(0.5, 0.72, 0.5)),
             ));
         });
 
@@ -616,9 +642,9 @@ fn spawn_ui(mut commands: Commands, assets: Res<AssetServer>, party: Res<Party>)
             ));
             c.spawn((
                 Text::new(if *party == Party::Duo {
-                    "\u{2190} \u{2192} choose    Tab other player    Enter confirm    C credits"
+                    "\u{2190} \u{2192} choose    Tab other player    L level    Enter confirm    C credits"
                 } else {
-                    "\u{2190} \u{2192} choose    Enter start    C credits"
+                    "\u{2190} \u{2192} choose    L level    Enter start    C credits"
                 }),
                 TextFont {
                     font: font.clone(),
@@ -635,11 +661,13 @@ fn update_ui(
     choice: Res<Choice>,
     party: Res<Party>,
     roster: Res<Roster>,
+    level: Res<CurrentLevel>,
     mut texts: ParamSet<(
         Query<&mut Text, With<NameText>>,
         Query<&mut Text, With<GenreText>>,
         Query<&mut Text, With<SoundText>>,
         Query<&mut Text, With<SlotText>>,
+        Query<&mut Text, With<LevelText>>,
     )>,
     mut colors: Query<&mut TextColor, With<SoundText>>,
 ) {
@@ -679,6 +707,13 @@ fn update_ui(
         } else {
             String::new()
         };
+    }
+    if let Ok(mut t) = texts.p4().single_mut() {
+        let mut name = level.name.to_string();
+        if let Some(c) = name.get_mut(0..1) {
+            c.make_ascii_uppercase();
+        }
+        **t = format!("Level: {name}   (L to switch)");
     }
     let _ = skins::SKINS;
 }

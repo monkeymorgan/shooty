@@ -47,6 +47,32 @@ pub enum AudioCue {
     /// A bad vibe bursts. Fires on every enemy death, so it is mixed quiet,
     /// pitched randomly, and capped per frame — see `play_cues`.
     Pop,
+    /// A pick leaves the gun. Fires up to a dozen times a second once
+    /// dual-wield and rapid-fire stack, so — like `Pop` — it's mixed low,
+    /// pitched randomly, and capped per frame.
+    Shoot,
+    /// A shot, shockwave, or swing lands on an enemy without killing it.
+    /// Same per-frame cap as `Pop`/`Shoot`: a shockwave can tag half the wave
+    /// on one expansion.
+    Hit,
+    /// A hero takes damage — a bolt, a bad-vibe touch, anything short of the
+    /// killing blow (that's `GameOver`'s business, not a cue).
+    HeroHurt,
+    /// A buff pickup (dual guitar / encore / arpeggio) is collected.
+    Pickup,
+    /// Spoken lines (`assets/audio/voice/`, see `tools/gen_voice.py`) —
+    /// macOS `say` placeholder voices, not sound-designed one-shots, so they
+    /// get no pitch/frame-cap treatment: each is rare enough on its own.
+    VoiceDualGuitar,
+    VoiceEncore,
+    VoiceArpeggio,
+    VoiceSpeaker,
+    VoiceStage,
+    /// One of the five gloom sources (`gloom::STEMS`) is cured. Carries which
+    /// one so `play_cues` can pick its line.
+    VoiceCured(u8),
+    /// All five are cured.
+    VoiceAllCured,
 }
 
 #[derive(Resource)]
@@ -57,6 +83,17 @@ struct AudioBank {
     build: Handle<AudioSource>,
     scrap: Handle<AudioSource>,
     pop: Handle<AudioSource>,
+    shoot: Handle<AudioSource>,
+    hit: Handle<AudioSource>,
+    hero_hurt: Handle<AudioSource>,
+    pickup: Handle<AudioSource>,
+    voice_dual_guitar: Handle<AudioSource>,
+    voice_encore: Handle<AudioSource>,
+    voice_arpeggio: Handle<AudioSource>,
+    voice_speaker: Handle<AudioSource>,
+    voice_stage: Handle<AudioSource>,
+    voice_cured: [Handle<AudioSource>; gloom::STEMS.len()],
+    voice_all_cured: Handle<AudioSource>,
 }
 
 /// The five stem loops, loaded at startup so they are ready to be started as
@@ -77,6 +114,14 @@ const STEM_GAIN: f32 = 0.42;
 
 /// How many burst pops may sound in a single frame.
 const MAX_POPS_PER_FRAME: u32 = 4;
+/// How many muzzle cracks may sound in a single frame — dual-wield plus
+/// rapid-fire can spawn several shots on the same tick.
+const MAX_SHOTS_PER_FRAME: u32 = 3;
+/// How many landed-hit thuds may sound in a single frame — a shockwave or
+/// beat slam can tag a handful of enemies on one expansion.
+const MAX_HITS_PER_FRAME: u32 = 4;
+/// How many hero-hurt stings may sound in a single frame.
+const MAX_HURTS_PER_FRAME: u32 = 2;
 
 pub struct AudioCuePlugin;
 
@@ -114,6 +159,18 @@ fn setup_audio(
         build: assets.load("audio/build.ogg"),
         scrap: assets.load("audio/scrap.ogg"),
         pop: assets.load("audio/pop.ogg"),
+        shoot: assets.load("audio/shoot.ogg"),
+        hit: assets.load("audio/hit.ogg"),
+        hero_hurt: assets.load("audio/hero_hurt.ogg"),
+        pickup: assets.load("audio/pickup.ogg"),
+        voice_dual_guitar: assets.load("audio/voice/voice_dual_guitar.ogg"),
+        voice_encore: assets.load("audio/voice/voice_encore.ogg"),
+        voice_arpeggio: assets.load("audio/voice/voice_arpeggio.ogg"),
+        voice_speaker: assets.load("audio/voice/voice_speaker.ogg"),
+        voice_stage: assets.load("audio/voice/voice_stage.ogg"),
+        voice_cured: gloom::STEMS
+            .map(|id| assets.load(format!("audio/voice/voice_cured_{id}.ogg"))),
+        voice_all_cured: assets.load("audio/voice/voice_all_cured.ogg"),
     });
 }
 
@@ -160,6 +217,9 @@ fn play_cues(
     // pops are capped, and each survivor is pitched slightly differently so a
     // burst sounds like popcorn rather than one flanged thud.
     let mut pops = 0;
+    let mut shots = 0;
+    let mut hits = 0;
+    let mut hurts = 0;
     let mut rng = rand::thread_rng();
     for cue in cues.read() {
         let (src, vol, speed) = match cue {
@@ -175,6 +235,40 @@ fn play_cues(
                 }
                 (bank.pop.clone(), 0.30, rng.gen_range(0.84..1.24))
             }
+            AudioCue::Shoot => {
+                shots += 1;
+                if shots > MAX_SHOTS_PER_FRAME {
+                    continue;
+                }
+                (bank.shoot.clone(), 0.16, rng.gen_range(0.92..1.12))
+            }
+            AudioCue::Hit => {
+                hits += 1;
+                if hits > MAX_HITS_PER_FRAME {
+                    continue;
+                }
+                (bank.hit.clone(), 0.26, rng.gen_range(0.9..1.18))
+            }
+            AudioCue::HeroHurt => {
+                hurts += 1;
+                if hurts > MAX_HURTS_PER_FRAME {
+                    continue;
+                }
+                (bank.hero_hurt.clone(), 0.55, rng.gen_range(0.95..1.08))
+            }
+            AudioCue::Pickup => (bank.pickup.clone(), 0.65, 1.0),
+            AudioCue::VoiceDualGuitar => (bank.voice_dual_guitar.clone(), 0.8, 1.0),
+            AudioCue::VoiceEncore => (bank.voice_encore.clone(), 0.8, 1.0),
+            AudioCue::VoiceArpeggio => (bank.voice_arpeggio.clone(), 0.8, 1.0),
+            AudioCue::VoiceSpeaker => (bank.voice_speaker.clone(), 0.8, 1.0),
+            AudioCue::VoiceStage => (bank.voice_stage.clone(), 0.85, 1.0),
+            AudioCue::VoiceCured(idx) => {
+                let Some(h) = bank.voice_cured.get(*idx as usize) else {
+                    continue;
+                };
+                (h.clone(), 0.8, 1.0)
+            }
+            AudioCue::VoiceAllCured => (bank.voice_all_cured.clone(), 0.9, 1.0),
         };
         commands.spawn((
             AudioPlayer(src),
